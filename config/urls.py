@@ -1,22 +1,20 @@
-"""
-URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
+    # Panel de administración que viene incluido en Django.
+    # Permite gestionar toda la base de datos desde el navegador.
     path('admin/', admin.site.urls),
-]
+
+    # include() le dice a Django: "todo lo que empiece con api/auth/
+    # derivalo al archivo apps/users/urls.py para que lo resuelva".
+    # Así cada app maneja sus propias URLs y config/urls.py
+    # solo actúa como distribuidor principal.
+    path('api/auth/', include('apps.users.urls')),
+
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# static() habilita que Django sirva las imágenes subidas (como fotos
+# de productos). Solo funciona en desarrollo (DEBUG=True).
+# En producción esto lo manejaría un servidor como Nginx.
