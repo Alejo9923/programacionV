@@ -24,4 +24,14 @@ urlpatterns = [
     # PUT    /api/products/{id}/ → editar (solo admin)
     # DELETE /api/products/{id}/ → borrar (solo admin)
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product-detail'),
+    
+    # Variantes de producto
+    # GET  /api/products/{producto_id}/variants/ → lista variantes de un producto (público)
+    # POST /api/products/{producto_id}/variants/ → crear variante (solo admin)
+    path('products/<int:producto_id>/variants/', views.ProductVariantListCreateView.as_view(), name='variant-list'),
+
+    # GET    /api/variants/{id}/ → detalle de una variante (público)
+    # PUT    /api/variants/{id}/ → editar variante (solo admin)
+    # DELETE /api/variants/{id}/ → borrar variante (solo admin)
+    path('variants/<int:pk>/', views.ProductVariantDetailView.as_view(), name='variant-detail'),
 ]

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product
+from .models import Category, Product, ProductVariant
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -8,41 +8,66 @@ class CategorySerializer(serializers.ModelSerializer):
     Convierte instancias de Category a JSON y viceversa.
     El slug es de solo lectura porque se genera automáticamente en el modelo.
     """
-
     class Meta:
         model = Category
         fields = ['id', 'nombre', 'slug', 'descripcion']
-
         # El slug lo genera el modelo en save(), el cliente no debe enviarlo.
         read_only_fields = ['slug']
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    """
+    Serializer para el modelo ProductVariant.
+    
+    Se usa de dos formas:
+    - Anidado dentro de ProductSerializer → muestra las variantes al listar productos.
+    - Independiente en las vistas de variantes → para crear/editar/borrar una variante.
+    """
+    # Campo extra de solo lectura que muestra el precio total de la variante
+    # (precio_base del producto + precio_extra de la variante).
+    # Se calcula con SerializerMethodField porque requiere acceder a dos modelos.
+    precio_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            'id',
+            'producto',     # ID del producto (requerido al crear)
+            'talla',        # S / M / L / XL
+            'color',
+            'stock',
+            'precio_extra', # Costo adicional sobre el precio_base
+            'precio_total', # precio_base + precio_extra (solo lectura)
+        ]
+        # producto se asigna automáticamente desde la URL, no desde el body
+        read_only_fields = ['producto', 'precio_total']
+
+    def get_precio_total(self, obj):
+        # obj es la instancia de ProductVariant.
+        # obj.producto.precio_base accede al producto relacionado via FK.
+        return obj.producto.precio_base + obj.precio_extra
 
 
 class ProductSerializer(serializers.ModelSerializer):
     """
     Serializer para el modelo Product.
-
-    Incluye categoria_nombre como campo extra de solo lectura para que
-    la respuesta JSON muestre el nombre legible de la categoría además
-    del ID. Así el frontend no necesita hacer una segunda consulta.
-
-    Ejemplo de respuesta:
-    {
-        "id": 1,
-        "nombre": "Remera básica",
-        "precio_base": "15.00",
-        "categoria": 2,           ← ID (para crear/editar)
-        "categoria_nombre": "Remeras",  ← nombre legible (solo lectura)
-        ...
-    }
+    
+    Incluye:
+    - categoria_nombre: nombre legible de la categoría (solo lectura).
+    - variantes: lista de todas las variantes del producto (solo lectura).
+      Se muestran anidadas en la respuesta; para crear/editar variantes
+      se usan los endpoints propios de variantes.
     """
-
-    # Campo extra que lee el nombre desde la relación ForeignKey.
-    # source='categoria.nombre' navega la relación automáticamente.
-    # read_only=True porque es solo informativo, no se usa al crear/editar.
+    # Muestra el nombre de la categoría además del ID.
     categoria_nombre = serializers.CharField(
         source='categoria.nombre',
         read_only=True
     )
+
+    # Variantes anidadas: usa el related_name='variantes' definido en el modelo.
+    # many=True porque un producto puede tener múltiples variantes.
+    # read_only=True porque las variantes se gestionan por sus propios endpoints.
+    variantes = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -51,11 +76,9 @@ class ProductSerializer(serializers.ModelSerializer):
             'nombre',
             'descripcion',
             'precio_base',
-            'categoria',        # ID de la categoría (requerido al crear)
-            'categoria_nombre', # Nombre legible (solo en respuestas)
+            'categoria',        # ID (requerido al crear/editar)
+            'categoria_nombre', # Nombre legible (solo lectura)
             'imagen',
             'activo',
+            'variantes',        # Lista de variantes anidadas (solo lectura)
         ]
-
-    # NOTA: Las variantes anidadas se agregarán en el módulo 1.4
-    # sin necesidad de modificar nada más de este serializer.

@@ -1,23 +1,56 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, filters
-
-from .models import Category, Product
-from .serializers import CategorySerializer, ProductSerializer
+from .models import Category, Product, ProductVariant
+from .serializers import CategorySerializer, ProductSerializer, ProductVariantSerializer
 from .permissions import IsAdminOrReadOnly
 
+
+class ProductVariantListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/products/{producto_id}/variants/ → lista variantes de un producto (público)
+    POST /api/products/{producto_id}/variants/ → crea una variante nueva (solo admin)
+
+    Las variantes siempre están asociadas a un producto específico.
+    El producto_id viene en la URL, no en el body.
+    """
+    serializer_class = ProductVariantSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+    def get_queryset(self):
+        # self.kwargs['producto_id'] lee el parámetro dinámico de la URL.
+        # Así solo devolvemos las variantes del producto solicitado.
+        return ProductVariant.objects.filter(
+            producto_id=self.kwargs['producto_id']
+        ).select_related('producto')  # select_related evita N+1 al calcular precio_total
+
+    def perform_create(self, serializer):
+        # Al crear, asignamos automáticamente el producto desde la URL.
+        # Así el cliente no necesita enviar producto_id en el body.
+        producto = Product.objects.get(pk=self.kwargs['producto_id'])
+        serializer.save(producto=producto)
+
+
+class ProductVariantDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/variants/{id}/ → detalle de una variante (público)
+    PUT    /api/variants/{id}/ → editar variante (solo admin)
+    DELETE /api/variants/{id}/ → borrar variante (solo admin)
+
+    Se accede por el ID directo de la variante, no por el producto.
+    Útil para editar stock, precio_extra o color de una variante específica.
+    """
+    queryset = ProductVariant.objects.all().select_related('producto')
+    serializer_class = ProductVariantSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 class CategoryListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/categories/ → lista todas las categorías (público)
     POST /api/categories/ → crea una categoría nueva (solo admin)
-
-    Usamos ListCreateAPIView de DRF porque combina las dos operaciones
-    en una sola clase, evitando repetir lógica.
     """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminOrReadOnly]  # Permiso que creamos en el paso anterior
-
+    permission_classes = [IsAdminOrReadOnly]
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
