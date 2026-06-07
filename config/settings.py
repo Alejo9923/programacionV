@@ -137,3 +137,9 @@ SIMPLE_JWT = {
     # Formato del header de autenticación: Authorization: Bearer 
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# Configuración de archivos subidos por usuarios (imágenes de productos).
+# MEDIA_URL  → prefijo en la URL para acceder a los archivos
+# MEDIA_ROOT → carpeta física donde se guardan en el servidor
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
