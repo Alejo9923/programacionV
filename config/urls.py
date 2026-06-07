@@ -13,6 +13,8 @@ urlpatterns = [
     # Así cada app maneja sus propias URLs y config/urls.py
     # solo actúa como distribuidor principal.
     path('api/auth/', include('apps.users.urls')),
+    path('api/', include('apps.products.urls')),
+    path('api/', include('apps.orders.urls')),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 # static() habilita que Django sirva las imágenes subidas (como fotos
