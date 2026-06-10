@@ -1,20 +1,35 @@
+"""
+URLs de la app 'orders'.
+
+Todas las rutas quedan bajo el prefijo /api/ definido en config/urls.py.
+
+Rutas del carrito (Integrante 1):
+  GET    /api/cart/              → ver carrito con items y total
+  POST   /api/cart/items/        → agregar item al carrito
+  PUT    /api/cart/items/{id}/   → cambiar cantidad de un item
+  DELETE /api/cart/items/{id}/   → quitar un item del carrito
+  DELETE /api/cart/clear/        → vaciar carrito completo
+
+Rutas de órdenes (Integrante 2 — Paso 2.2):
+  POST   /api/orders/checkout/   → convertir carrito en Order (checkout)
+"""
+
 from django.urls import path
 from . import views
 
-# URLs del módulo de carrito.
-# Todas quedan bajo el prefijo /api/ que se define en config/urls.py
-
 urlpatterns = [
-    # GET /api/cart/ → ver carrito con items y total
+    # ── Carrito (Integrante 1) ─────────────────────────────────────────────
     path('cart/', views.CartView.as_view(), name='cart-detail'),
-
-    # POST /api/cart/items/ → agregar item al carrito
     path('cart/items/', views.CartItemCreateView.as_view(), name='cart-item-create'),
-
-    # PUT    /api/cart/items/{id}/ → cambiar cantidad
-    # DELETE /api/cart/items/{id}/ → quitar un item
     path('cart/items/<int:pk>/', views.CartItemDetailView.as_view(), name='cart-item-detail'),
-
-    # DELETE /api/cart/clear/ → vaciar carrito completo
     path('cart/clear/', views.CartClearView.as_view(), name='cart-clear'),
+
+    # ── Checkout (Integrante 2 — Paso 2.2) ────────────────────────────────
+    # POST → verifica carrito, stock, calcula total y crea Order + OrderItems.
+    path('orders/checkout/', views.CheckoutView.as_view(), name='order-checkout'),
+
+    # ── Confirmación simulada (Integrante 2 — Paso 2.3) ───────────────────
+    # POST → cambia estado a 'paid', descuenta stock y vacía el carrito.
+    # El {id} identifica la Order a confirmar.
+    path('orders/<int:pk>/confirm/', views.ConfirmOrderView.as_view(), name='order-confirm'),
 ]
