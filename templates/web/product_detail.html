@@ -1,0 +1,91 @@
+{% extends 'web/base.html' %}
+
+{% block title %}{{ producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Imagen del producto -->
+    <div class="col-md-5">
+        {% if producto.imagen %}
+            <img src="{{ producto.imagen.url }}" class="img-fluid rounded" alt="{{ producto.nombre }}">
+        {% else %}
+            <div class="bg-secondary text-white d-flex align-items-center justify-content-center rounded" style="height: 300px;">
+                Sin imagen
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Datos del producto -->
+    <div class="col-md-7">
+        <h2>{{ producto.nombre }}</h2>
+        <p class="text-muted">{{ producto.categoria_nombre }}</p>
+        <p>{{ producto.descripcion }}</p>
+        <h4 class="text-primary">${{ producto.precio_base }}</h4>
+
+        <hr>
+
+        <!-- Formulario para agregar al carrito -->
+        {% if request.session.access_token %}
+            <form method="POST" action="{% url 'web:product_detail' producto.id %}">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="variante_id" class="form-label">Seleccioná una variante</label>
+                    <select class="form-select" name="variante_id" id="variante_id" required>
+                        <option value="">-- Elegí talla y color --</option>
+                        {% for variante in producto.variantes %}
+                            {% if variante.stock > 0 %}
+                                <option value="{{ variante.id }}">
+                                    Talla {{ variante.talla }} — {{ variante.color }}
+                                    {% if variante.precio_extra > 0 %}
+                                        (+${{ variante.precio_extra }})
+                                    {% endif %}
+                                    — Stock: {{ variante.stock }}
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="cantidad" class="form-label">Cantidad</label>
+                    <input type="number" class="form-control" name="cantidad" id="cantidad" value="1" min="1" step="1" pattern="[0-9]+" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Agregar al carrito</button>
+            </form>
+        {% else %}
+            <a href="{% url 'web:login' %}" class="btn btn-outline-primary">
+                Iniciá sesión para comprar
+            </a>
+        {% endif %}
+
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+
+        {% if success %}
+            <div class="alert alert-success mt-3">{{ success }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.getElementById('cantidad').addEventListener('keypress', function(e) {
+        // Solo permite teclas numéricas (0-9)
+        if (!/[0-9]/.test(e.key)) {
+            e.preventDefault();
+        }
+    });
+
+    document.querySelector('select[name="variante_id"]').addEventListener('invalid', function(e) {
+    e.target.setCustomValidity('Por favor seleccioná una variante.');
+    });
+
+    document.querySelector('select[name="variante_id"]').addEventListener('change', function(e) {
+        e.target.setCustomValidity('');
+    });
+    
+</script>
+
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Mi Carrito{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Mi Carrito</h2>
+
+{% if cart and cart.items %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Talla</th>
+                <th>Color</th>
+                <th>Precio unitario</th>
+                <th>Cantidad</th>
+                <th>Subtotal</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cart.items %}
+                <tr>
+                    <td>{{ item.variante.producto.nombre }}</td>
+                    <td>{{ item.variante.talla }}</td>
+                    <td>{{ item.variante.color }}</td>
+                    <td>${{ item.variante.precio_total }}</td>
+                    <td>
+                        <!-- Formulario para cambiar cantidad -->
+                        <form method="POST" action="{% url 'web:update_cart_item' item.id %}" class="d-flex gap-2">
+                            {% csrf_token %}
+                            <input type="number" name="cantidad" value="{{ item.cantidad }}" min="1" class="form-control form-control-sm" style="width: 70px;">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Actualizar</button>
+                        </form>
+                    </td>
+                    <td>${{ item.subtotal }}</td>
+                    <td>
+                        <!-- Formulario para eliminar item -->
+                        <form method="POST" action="{% url 'web:remove_cart_item' item.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5" class="text-end"><strong>Total:</strong></td>
+                <td><strong>${{ cart.total }}</strong></td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="d-flex justify-content-between mt-3">
+        <!-- Vaciar carrito -->
+        <form method="POST" action="{% url 'web:clear_cart' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">Vaciar carrito</button>
+        </form>
+
+        <!-- Ir al checkout -->
+        <a href="{% url 'web:checkout' %}" class="btn btn-success">Proceder al checkout</a>
+    </div>
+
+{% else %}
+    <p class="text-muted">Tu carrito está vacío.</p>
+    <a href="{% url 'web:catalog' %}" class="btn btn-primary">Ver productos</a>
+{% endif %}
+{% endblock %}
