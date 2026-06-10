@@ -1,7 +1,22 @@
+"""
+Serializers de la app 'orders' — Integrante 2 / Paso 2.2.
+
+Define la representación JSON de las respuestas del endpoint de checkout:
+  - OrderItemSerializer: muestra cada línea de la orden (variante, cantidad, precio snapshot).
+  - OrderSerializer:     muestra la orden completa con sus items anidados y el total.
+
+Los serializers de carrito (CartSerializer / CartItemSerializer) se mantienen
+tal como los dejó el Integrante 1.
+"""
+
 from rest_framework import serializers
-from .models import Cart, CartItem
+from .models import Cart, CartItem, Order, OrderItem
 from apps.products.serializers import ProductVariantSerializer
 
+
+# ──────────────────────────────────────────────
+#  Serializers existentes del Integrante 1 (carrito)
+# ──────────────────────────────────────────────
 
 class CartItemSerializer(serializers.ModelSerializer):
     """
@@ -68,3 +83,66 @@ class CartSerializer(serializers.ModelSerializer):
             precio = item.variante.producto.precio_base + item.variante.precio_extra
             total += precio * item.cantidad
         return total
+
+
+# ──────────────────────────────────────────────
+#  Serializers nuevos — Paso 2.2 (checkout)
+# ──────────────────────────────────────────────
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    """
+    Serializer de solo lectura para cada línea de una Order.
+
+    Devuelve los datos mínimos necesarios en la respuesta del checkout:
+      - variante_id:     ID de la variante comprada.
+      - cantidad:        Unidades.
+      - precio_unitario: Precio snapshot al momento de la compra
+                         (NO el precio actual de la variante).
+
+    Es read_only en su totalidad porque los OrderItems se crean
+    internamente en CheckoutView, nunca desde el body de la request.
+    """
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            'id',
+            'variante_id',      # FK ID — suficiente para identificar la variante
+            'cantidad',
+            'precio_unitario',  # Snapshot: precio fijo en el momento de la compra
+        ]
+        # Todos los campos son de solo lectura: el serializer solo se usa
+        # para serializar la respuesta, nunca para deserializar input.
+        read_only_fields = fields
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    """
+    Serializer de solo lectura para una Order completa.
+
+    Usado exclusivamente en la respuesta 201 del endpoint de checkout.
+    Incluye los items anidados vía OrderItemSerializer para que el cliente
+    pueda confirmar exactamente qué se compró y a qué precio.
+
+    Campos devueltos:
+      - id:     ID de la orden recién creada.
+      - total:  Importe total calculado al momento del checkout.
+      - estado: Siempre 'pending' al crear (se actualiza en el paso 2.3).
+      - fecha:  Timestamp de creación (auto_now_add).
+      - items:  Lista de OrderItems con variante_id, cantidad y precio_unitario.
+    """
+
+    # Items anidados — usa related_name='items' definido en OrderItem.
+    # many=True porque una orden tiene múltiples líneas.
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'total',
+            'estado',
+            'fecha',
+            'items',
+        ]
+        read_only_fields = fields
