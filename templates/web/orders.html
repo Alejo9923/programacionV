@@ -1,0 +1,51 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Mis Órdenes{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Mis Órdenes</h2>
+
+{% if ordenes %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for orden in ordenes %}
+                <tr>
+                    <td>{{ orden.id }}</td>
+                    <td>{{ orden.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>${{ orden.total }}</td>
+                    <td>
+                        {% if orden.estado == 'pending' %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                        {% elif orden.estado == 'paid' %}
+                            <span class="badge bg-success">Pagado</span>
+                        {% elif orden.estado == 'cancelled' %}
+                            <span class="badge bg-danger">Cancelado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'web:order_detail' orden.id %}" class="btn btn-sm btn-outline-primary">Ver detalle</a>
+                        {% if orden.estado == 'pending' %}
+                            <form method="POST" action="{% url 'web:confirm_order' orden.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-success">Confirmar pago</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-muted">No tenés órdenes todavía.</p>
+    <a href="{% url 'web:catalog' %}" class="btn btn-primary">Ver productos</a>
+{% endif %}
+{% endblock %}

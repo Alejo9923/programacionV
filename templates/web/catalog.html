@@ -1,0 +1,64 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Catálogo de Productos{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Catálogo de Productos</h2>
+
+<!-- Filtros de búsqueda -->
+<form method="GET" action="{% url 'web:catalog' %}" class="row g-3 mb-4">
+    <div class="col-md-4">
+        <input type="text" class="form-control" name="search" placeholder="Buscar producto..." value="{{ request.GET.search }}">
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" name="categoria">
+            <option value="">Todas las categorías</option>
+            {% for categoria in categorias %}
+                <option value="{{ categoria.id }}" {% if request.GET.categoria == categoria.id|stringformat:"s" %}selected{% endif %}>
+                    {{ categoria.nombre }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <input type="number" class="form-control" name="precio_min" placeholder="Precio mín." value="{{ request.GET.precio_min }}">
+    </div>
+    <div class="col-md-2">
+        <input type="number" class="form-control" name="precio_max" placeholder="Precio máx." value="{{ request.GET.precio_max }}">
+    </div>
+    <div class="col-md-1">
+        <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+    </div>
+</form>
+
+<!-- Lista de productos -->
+{% if productos %}
+    <div class="row">
+        {% for producto in productos %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    {% if producto.imagen %}
+                        <!-- XSS: Django escapa automáticamente las variables en templates -->
+                        <img src="{{ producto.imagen.url }}" class="card-img-top" alt="{{ producto.nombre }}" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                        <div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">
+                            Sin imagen
+                        </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <!-- {{ producto.nombre }} es escapado automáticamente — protección XSS -->
+                        <h5 class="card-title">{{ producto.nombre }}</h5>
+                        <p class="card-text text-muted">{{ producto.categoria_nombre }}</p>
+                        <p class="card-text"><strong>${{ producto.precio_base }}</strong></p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{% url 'web:product_detail' producto.id %}" class="btn btn-outline-primary w-100">Ver detalle</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">No se encontraron productos.</p>
+{% endif %}
+{% endblock %}
