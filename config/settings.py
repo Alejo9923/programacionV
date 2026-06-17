@@ -144,3 +144,7 @@ SIMPLE_JWT = {
 # MEDIA_ROOT → carpeta física donde se guardan en el servidor
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Protección contra Clickjacking — impide que la página sea incrustada en un iframe
+# de otro sitio. XFrameOptionsMiddleware (ya activo en MIDDLEWARE) lee esta variable.
+X_FRAME_OPTIONS = 'DENY'
