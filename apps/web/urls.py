@@ -26,4 +26,17 @@ urlpatterns = [
     path('orders/', views.orders_view, name='orders'),
     path('orders/<int:orden_id>/', views.order_detail_view, name='order_detail'),
     path('orders/<int:orden_id>/confirm/', views.confirm_order_view, name='confirm_order'),
+    # Dashboard de staff — productos, categorías y variantes
+    path('dashboard/', views.dashboard_view, name='dashboard'),
+
+    path('dashboard/categories/', views.dashboard_categories_view, name='dashboard_categories'),
+    path('dashboard/categories/<int:categoria_id>/delete/', views.dashboard_category_delete_view, name='dashboard_category_delete'),
+
+    path('dashboard/products/', views.dashboard_products_view, name='dashboard_products'),
+    path('dashboard/products/<int:producto_id>/edit/', views.dashboard_product_edit_view, name='dashboard_product_edit'),
+    path('dashboard/products/<int:producto_id>/delete/', views.dashboard_product_delete_view, name='dashboard_product_delete'),
+
+    path('dashboard/products/<int:producto_id>/variants/', views.dashboard_variants_view, name='dashboard_variants'),
+    path('dashboard/variants/<int:variante_id>/edit/', views.dashboard_variant_edit_view, name='dashboard_variant_edit'),
+    path('dashboard/variants/<int:variante_id>/delete/', views.dashboard_variant_delete_view, name='dashboard_variant_delete'),
 ]

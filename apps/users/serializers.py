@@ -68,8 +68,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     # el perfil del usuario ya autenticado. No necesita validar contraseñas.
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone', 'address', 'date_joined']
-
+        fields = ['id', 'username', 'email', 'phone', 'address', 'date_joined', 'is_staff']
         # read_only_fields son campos que se muestran pero no se pueden
-        # modificar. El id y la fecha de registro no deben cambiarse.
-        read_only_fields = ['id', 'date_joined']
+        # modificar. El id, la fecha de registro y is_staff no deben
+        # cambiarse desde este endpoint.
+        read_only_fields = ['id', 'date_joined', 'is_staff']

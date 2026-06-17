@@ -1,0 +1,39 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Panel de Administración</h2>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">📦 Categorías</h5>
+                <p class="card-text text-muted">Gestionar categorías de productos</p>
+                <a href="{% url 'web:dashboard_categories' %}" class="btn btn-primary">Administrar</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">👕 Productos</h5>
+                <p class="card-text text-muted">Gestionar productos y sus variantes</p>
+                <a href="{% url 'web:dashboard_products' %}" class="btn btn-primary">Administrar</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">📋 Órdenes</h5>
+                <p class="card-text text-muted">Ver y gestionar órdenes de compra</p>
+                <button class="btn btn-secondary" disabled>Próximamente</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -19,6 +19,9 @@
                     <!-- Usuario autenticado -->
                     <a class="nav-link" href="{% url 'web:cart' %}">🛒 Carrito</a>
                     <a class="nav-link" href="{% url 'web:orders' %}">📦 Mis Órdenes</a>
+                    {% if request.session.is_staff %}
+                        <a class="nav-link" href="{% url 'web:dashboard' %}">⚙️ Dashboard</a>
+                    {% endif %}
                     <a class="nav-link" href="{% url 'web:logout' %}">Cerrar sesión</a>
                 {% else %}
                     <!-- Usuario no autenticado -->

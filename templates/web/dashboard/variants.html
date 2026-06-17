@@ -1,0 +1,101 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Variantes — {{ producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Variantes de "{{ producto.nombre }}"</h2>
+    <a href="{% url 'web:dashboard_products' %}" class="btn btn-outline-secondary">← Volver a productos</a>
+</div>
+
+<div class="row">
+    <!-- Formulario para crear variante nueva -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Nueva variante</h5>
+                <form method="POST" action="{% url 'web:dashboard_variants' producto.id %}">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label">Talla</label>
+                        <select class="form-select" name="talla" required>
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Color</label>
+                        <input type="text" class="form-control" name="color" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stock</label>
+                        <input type="number" min="0" class="form-control" name="stock" value="0" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Precio extra</label>
+                        <input type="number" step="0.01" min="0" class="form-control" name="precio_extra" value="0.00">
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">Crear variante</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de variantes existentes -->
+    <div class="col-md-8">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Talla</th>
+                    <th>Color</th>
+                    <th>Stock</th>
+                    <th>Precio extra</th>
+                    <th>Precio total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for variante in variantes %}
+                    <tr>
+                        <!-- Formulario inline para editar stock/precio rápidamente -->
+                        <form method="POST" action="{% url 'web:dashboard_variant_edit' variante.id %}">
+                            {% csrf_token %}
+                            <td>
+                                <select name="talla" class="form-select form-select-sm">
+                                    {% for t in "SMLX" %}{% endfor %}
+                                    <option value="S" {% if variante.talla == "S" %}selected{% endif %}>S</option>
+                                    <option value="M" {% if variante.talla == "M" %}selected{% endif %}>M</option>
+                                    <option value="L" {% if variante.talla == "L" %}selected{% endif %}>L</option>
+                                    <option value="XL" {% if variante.talla == "XL" %}selected{% endif %}>XL</option>
+                                </select>
+                            </td>
+                            <td><input type="text" name="color" class="form-control form-control-sm" value="{{ variante.color }}"></td>
+                            <td><input type="number" name="stock" class="form-control form-control-sm" value="{{ variante.stock }}" style="width: 80px;"></td>
+                            <td><input type="number" step="0.01" name="precio_extra" class="form-control form-control-sm" value="{{ variante.precio_extra }}" style="width: 90px;"></td>
+                            <td>${{ variante.precio_total }}</td>
+                            <td>
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Guardar</button>
+                            </td>
+                        </form>
+                        <td>
+                            <form method="POST" action="{% url 'web:dashboard_variant_delete' variante.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="text-muted">No hay variantes todavía.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
