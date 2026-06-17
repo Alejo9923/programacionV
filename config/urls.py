@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/auth/', include('apps.users.urls')),
     path('api/', include('apps.products.urls')),
     path('api/', include('apps.orders.urls')),
+    path('api/', include('apps.reviews.urls')),  # Reseñas — Paso 2.5
     path('web/', include('apps.web.urls')),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

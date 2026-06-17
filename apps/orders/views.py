@@ -1,7 +1,11 @@
 """
-Vistas de la app 'orders' — Integrante 2 / Paso 2.2.
+Vistas de la app 'orders' — Integrante 2.
 
-Mantiene las vistas de carrito del Integrante 1 e incorpora CheckoutView.
+Mantiene las vistas de carrito del Integrante 1 e incorpora:
+  - CheckoutView      (Paso 2.2) — convierte el carrito en una Order.
+  - ConfirmOrderView  (Paso 2.3) — confirmación simulada, descuenta stock.
+  - OrderListView     (Paso 2.4) — historial de órdenes del usuario.
+  - OrderDetailView   (Paso 2.4) — detalle de una orden con sus items.
 """
 
 from django.db import transaction
@@ -356,3 +360,74 @@ class ConfirmOrderView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# ──────────────────────────────────────────────
+#  OrderListView — Paso 2.4
+# ──────────────────────────────────────────────
+
+class OrderListView(APIView):
+    """
+    GET /api/orders/ — Historial de órdenes del usuario autenticado.
+
+    Devuelve ÚNICAMENTE las órdenes que pertenecen a request.user.
+    El filtro por usuario es obligatorio: sin él cualquier usuario autenticado
+    podría ver órdenes ajenas, lo cual es una falla de seguridad grave.
+
+    Las órdenes se devuelven ordenadas por fecha descendente (-fecha) para
+    que la más reciente aparezca siempre primera, tal como espera el usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Filtramos estrictamente por request.user para que cada usuario
+        # solo pueda ver su propio historial, nunca el de otros.
+        # select_related('items') trae los OrderItems en la misma query
+        # evitando N+1 al serializar cada orden con sus items anidados.
+        orders = (
+            Order.objects
+            .filter(usuario=request.user)
+            .prefetch_related('items')
+            .order_by('-fecha')
+        )
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ──────────────────────────────────────────────
+#  OrderDetailView — Paso 2.4
+# ──────────────────────────────────────────────
+
+class OrderDetailView(APIView):
+    """
+    GET /api/orders/{id}/ — Detalle de una orden con todos sus items.
+
+    Pasos:
+      1. Obtener la orden por pk (404 si no existe).
+      2. Verificar que pertenece a request.user (403 si no es dueño).
+      3. Serializar y devolver con items anidados.
+
+    Por qué verificamos la propiedad explícitamente:
+      Usar filter(usuario=request.user, pk=pk) devolvería 404 tanto si la
+      orden no existe como si existe pero es ajena, lo que oculta la razón
+      real del rechazo. Separar los dos controles (404 vs 403) da respuestas
+      más claras y facilita el debugging durante el desarrollo.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        # Paso 1: Obtener la orden — 404 automático si el id no existe.
+        order = get_object_or_404(Order, pk=pk)
+
+        # Paso 2: Verificar que la orden pertenece al usuario autenticado.
+        # Usamos 403 Forbidden (no 404) para ser explícitos: el recurso
+        # existe pero el usuario no tiene permiso sobre él.
+        if order.usuario != request.user:
+            return Response(
+                {"error": "No tenés permiso para ver esta orden."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Paso 3: Serializar la orden con sus items anidados.
+        serializer = OrderSerializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
