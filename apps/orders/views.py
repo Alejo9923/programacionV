@@ -6,9 +6,11 @@ Mantiene las vistas de carrito del Integrante 1 e incorpora:
   - ConfirmOrderView  (Paso 2.3) — confirmación simulada, descuenta stock.
   - OrderListView     (Paso 2.4) — historial de órdenes del usuario.
   - OrderDetailView   (Paso 2.4) — detalle de una orden con sus items.
+  - OrderInvoiceView  (Opcional C) — genera y descarga la factura PDF.
 """
 
 from django.db import transaction
+from django.http import HttpResponse
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -431,3 +433,70 @@ class OrderDetailView(APIView):
         # Paso 3: Serializar la orden con sus items anidados.
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ──────────────────────────────────────────────
+#  OrderInvoiceView — Opcional C
+# ──────────────────────────────────────────────
+
+class OrderInvoiceView(APIView):
+    """
+    GET /api/orders/{id}/invoice/ — Descarga la factura PDF de una orden.
+
+    Solo el dueño de la orden puede descargar su factura,
+    y solo si la orden ya fue confirmada (estado='paid').
+
+    El PDF se genera en memoria con ReportLab (sin escribir en disco)
+    y se envía directamente como respuesta HTTP con Content-Type PDF.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        # ── Obtener la orden con todas las relaciones necesarias para el PDF ──
+        #
+        # select_related('usuario') evita una query extra para obtener el
+        # usuario al momento de mostrar nombre y email en la factura.
+        #
+        # prefetch_related('items__variante__producto') es fundamental para
+        # evitar el problema N+1: sin él, por cada item en el loop de
+        # generate_invoice() Django haría una query a variante y otra a
+        # producto, multiplicando las queries por la cantidad de ítems.
+        # Con prefetch_related, Django trae todos los items, variantes y
+        # productos en 3 queries fijas independientemente de cuántos haya.
+        order = get_object_or_404(
+            Order.objects
+            .select_related('usuario')
+            .prefetch_related('items__variante__producto'),
+            pk=pk,
+        )
+
+        # ── Verificar propiedad ──
+        # 403 Forbidden: el recurso existe pero el usuario no tiene permiso.
+        if order.usuario != request.user:
+            return Response(
+                {'error': 'No tenés permiso para descargar esta factura.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # ── Verificar estado ──
+        # Solo órdenes confirmadas ('paid') tienen factura válida.
+        # Una orden 'pending' o 'cancelled' no debe generar PDF.
+        if order.estado != Order.Estado.PAID:
+            return Response(
+                {'error': 'Solo se pueden generar facturas de órdenes confirmadas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Generar el PDF en memoria ──
+        # generate_invoice() retorna bytes listos para enviar.
+        # Importamos aquí para no cargar ReportLab en cada request,
+        # solo cuando se accede a este endpoint.
+        from utils.pdf_generator import generate_invoice
+        pdf_bytes = generate_invoice(order)
+
+        # ── Respuesta HTTP con el PDF ──
+        # Content-Type: application/pdf indica al navegador que es un PDF.
+        # Content-Disposition: attachment fuerza la descarga (no muestra en el navegador).
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="factura-{order.id}.pdf"'
+        return response

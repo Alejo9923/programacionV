@@ -11,10 +11,11 @@ Rutas del carrito (Integrante 1):
   DELETE /api/cart/clear/        → vaciar carrito completo
 
 Rutas de órdenes (Integrante 2):
-  POST   /api/orders/checkout/      → convertir carrito en Order (Paso 2.2)
-  POST   /api/orders/{id}/confirm/  → confirmación simulada      (Paso 2.3)
-  GET    /api/orders/               → historial del usuario        (Paso 2.4)
-  GET    /api/orders/{id}/          → detalle de una orden         (Paso 2.4)
+  POST   /api/orders/checkout/       → convertir carrito en Order (Paso 2.2)
+  POST   /api/orders/{id}/confirm/   → confirmación simulada      (Paso 2.3)
+  GET    /api/orders/                → historial del usuario        (Paso 2.4)
+  GET    /api/orders/{id}/           → detalle de una orden         (Paso 2.4)
+  GET    /api/orders/{id}/invoice/   → descargar factura PDF        (Opcional C)
 """
 
 from django.urls import path
@@ -42,4 +43,10 @@ urlpatterns = [
     # ── Confirmación simulada (Integrante 2 — Paso 2.3) ───────────────────
     # POST → cambia estado a 'paid', descuenta stock y vacía el carrito.
     path('orders/<int:pk>/confirm/', views.ConfirmOrderView.as_view(), name='order-confirm'),
+
+    # ── Factura PDF (Opcional C) ─────────────────────────────────────
+    # GET → genera y descarga el PDF de la factura de una orden 'paid'.
+    # La ruta con dos segmentos debe ir ANTES de orders/<int:pk>/ para
+    # que Django la evalúe primero y no confunda 'invoice' como segundo pk.
+    path('orders/<int:pk>/invoice/', views.OrderInvoiceView.as_view(), name='order-invoice'),
 ]
