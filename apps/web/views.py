@@ -68,7 +68,10 @@ def login_view(request):
                 headers={'Authorization': f'Bearer {data["access"]}'}
             )
             if profile_resp.status_code == 200:
-                request.session['is_staff'] = profile_resp.json().get('is_staff', False)
+                profile_data = profile_resp.json()
+                request.session['is_staff'] = profile_data.get('is_staff', False)
+                request.session['user_id'] = profile_data.get('id')
+
 
 
             return redirect('web:catalog')
@@ -198,7 +201,20 @@ def product_detail_view(request, producto_id):
                 'error': error
             })
 
-    return render(request, 'web/product_detail.html', {'producto': producto})
+    # Traemos las reseñas del producto desde la API.
+    # Si falla (producto inexistente, error de red), usamos un dict vacío seguro.
+    reviews_resp = requests.get(f'{API_BASE}/products/{producto_id}/reviews/')
+    reviews_data = reviews_resp.json() if reviews_resp.status_code == 200 else {
+        'rating_promedio': None,
+        'total_resenas': 0,
+        'resenas': [],
+    }
+
+    return render(request, 'web/product_detail.html', {
+        'producto': producto,
+        'reviews_data': reviews_data,
+    })
+
 
 
 def cart_view(request):
@@ -612,3 +628,65 @@ def dashboard_variant_delete_view(request, variante_id):
             messages.error(request, 'No se pudo eliminar la variante.')
 
     return redirect('web:dashboard_variants', producto_id=producto_id)
+
+def create_review_view(request, producto_id):
+    """
+    POST /web/products/{id}/reviews/ → envía una reseña a la API.
+
+    La API verifica que el usuario haya comprado el producto (orden 'paid').
+    Si no compró, devuelve 403; si ya dejó una reseña, devuelve 400.
+    En ambos casos mostramos el mensaje de error en el detalle del producto.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('web:login')
+
+    if request.method == 'POST':
+        rating = request.POST.get('rating')
+        comentario = request.POST.get('comentario')
+
+        response = requests.post(
+            f'{API_BASE}/products/{producto_id}/reviews/',
+            json={'rating': int(rating), 'comentario': comentario},
+            headers=headers,
+        )
+
+        if response.status_code == 201:
+            messages.success(request, 'Reseña publicada.')
+        else:
+            # La API devuelve {'error': '...'} en 403 (no compró) y 400 (ya reseñó)
+            error_msg = response.json().get('error', 'No se pudo publicar la reseña.')
+            messages.error(request, error_msg)
+
+    return redirect('web:product_detail', producto_id=producto_id)
+
+
+def delete_review_view(request, review_id):
+    """
+    POST /web/reviews/{id}/delete/ → elimina una reseña propia.
+
+    Usamos POST en lugar de DELETE porque los formularios HTML solo soportan
+    GET y POST. El producto_id viene en el body para poder redirigir de vuelta
+    al detalle del producto después de borrar.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('web:login')
+
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+
+        # Llamamos al endpoint DELETE de la API con el token del usuario.
+        # La API verifica que el usuario sea el autor (403 si no lo es).
+        response = requests.delete(f'{API_BASE}/reviews/{review_id}/', headers=headers)
+
+        if response.status_code == 204:
+            messages.success(request, 'Reseña eliminada.')
+        else:
+            messages.error(request, 'No se pudo eliminar la reseña.')
+
+        if producto_id:
+            return redirect('web:product_detail', producto_id=int(producto_id))
+
+    return redirect('web:catalog')
+

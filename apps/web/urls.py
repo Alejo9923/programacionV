@@ -39,4 +39,9 @@ urlpatterns = [
     path('dashboard/products/<int:producto_id>/variants/', views.dashboard_variants_view, name='dashboard_variants'),
     path('dashboard/variants/<int:variante_id>/edit/', views.dashboard_variant_edit_view, name='dashboard_variant_edit'),
     path('dashboard/variants/<int:variante_id>/delete/', views.dashboard_variant_delete_view, name='dashboard_variant_delete'),
+
+    # Reseñas
+    path('products/<int:producto_id>/reviews/', views.create_review_view, name='create_review'),
+    path('reviews/<int:review_id>/delete/', views.delete_review_view, name='delete_review'),
+
 ]
