@@ -60,6 +60,9 @@
             {% csrf_token %}
             <button type="submit" class="btn btn-success">Confirmar pago</button>
         </form>
+    {% elif orden.estado == 'paid' %}
+        <!-- GET simple: no modifica estado en el servidor, solo descarga el PDF -->
+        <a href="{% url 'web:order_invoice' orden.id %}" class="btn btn-primary">Descargar factura</a>
     {% endif %}
 </div>
 {% endblock %}

@@ -38,8 +38,11 @@
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-success">Confirmar pago</button>
                             </form>
+                        {% elif orden.estado == 'paid' %}
+                            <a href="{% url 'web:order_invoice' orden.id %}" class="btn btn-sm btn-primary">Descargar factura</a>
                         {% endif %}
                     </td>
+
                 </tr>
             {% endfor %}
         </tbody>

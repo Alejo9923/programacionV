@@ -26,6 +26,7 @@ urlpatterns = [
     path('orders/', views.orders_view, name='orders'),
     path('orders/<int:orden_id>/', views.order_detail_view, name='order_detail'),
     path('orders/<int:orden_id>/confirm/', views.confirm_order_view, name='confirm_order'),
+    path('orders/<int:orden_id>/invoice/', views.order_invoice_view, name='order_invoice'),
     # Dashboard de staff — productos, categorías y variantes
     path('dashboard/', views.dashboard_view, name='dashboard'),
 

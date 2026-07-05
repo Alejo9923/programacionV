@@ -1,5 +1,6 @@
 import requests
 from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from django.contrib import messages
 from functools import wraps
 
@@ -345,6 +346,35 @@ def order_detail_view(request, orden_id):
 
     orden = response.json()
     return render(request, 'web/order_detail.html', {'orden': orden})
+
+def order_invoice_view(request, orden_id):
+    """
+    GET /web/orders/{id}/invoice/ → descarga la factura PDF de una orden pagada.
+
+    Actúa como proxy: el navegador no tiene el JWT (vive en la sesión de
+    Django, no en una cookie), así que esta vista lo agrega en el header
+    Authorization y reenvía el PDF recibido de la API tal cual, con el
+    mismo Content-Type. Si la orden no está 'paid' o no es del usuario,
+    la API devuelve un error (400/403) que mostramos como mensaje.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('web:login')
+
+    response = requests.get(f'{API_BASE}/orders/{orden_id}/invoice/', headers=headers)
+
+    if response.status_code == 200:
+        # response.content son los bytes crudos del PDF generado por ReportLab.
+        # No usamos response.json() porque el body no es JSON, es binario.
+        pdf_response = HttpResponse(response.content, content_type='application/pdf')
+        pdf_response['Content-Disposition'] = f'attachment; filename="factura-{orden_id}.pdf"'
+        return pdf_response
+
+    # La API devuelve {'error': '...'} en 400 (no pagada) y 403 (no es dueño).
+    error = response.json().get('error', 'No se pudo generar la factura.')
+    messages.error(request, error)
+    return redirect('web:order_detail', orden_id=orden_id)
+
 
 
 def confirm_order_view(request, orden_id):
