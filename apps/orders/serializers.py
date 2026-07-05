@@ -148,3 +148,23 @@ class OrderSerializer(serializers.ModelSerializer):
             'items',
         ]
         read_only_fields = fields
+
+
+# ──────────────────────────────────────────────
+#  Serializer para el dashboard de staff (gestión de órdenes)
+# ──────────────────────────────────────────────
+
+class AdminOrderSerializer(OrderSerializer):
+    """
+    Extiende OrderSerializer agregando el email del dueño de la orden.
+
+    Se usa solo en las vistas de administración, donde el staff ve órdenes
+    de todos los usuarios (no solo las propias) y necesita saber de quién
+    es cada una — el OrderSerializer normal no lo incluye porque en el resto
+    de la API cada usuario solo ve sus propias órdenes.
+    """
+    usuario_email = serializers.CharField(source='usuario.email', read_only=True)
+
+    class Meta(OrderSerializer.Meta):
+        fields = OrderSerializer.Meta.fields + ['usuario_email']
+        read_only_fields = fields

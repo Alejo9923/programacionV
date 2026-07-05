@@ -34,6 +34,13 @@ urlpatterns = [
     # no intente interpretar 'checkout' como un entero en el path converter.
     path('orders/checkout/', views.CheckoutView.as_view(), name='order-checkout'),
 
+    # ── Gestión de órdenes — dashboard de staff ───────────────────────────
+    # 'admin' es un segmento literal (no un entero), así que nunca colisiona
+    # con orders/<int:pk>/, pero se registra antes por prolijidad.
+    path('orders/admin/', views.AdminOrderListView.as_view(), name='admin-order-list'),
+    path('orders/admin/<int:pk>/', views.AdminOrderDetailView.as_view(), name='admin-order-detail'),
+    path('orders/admin/<int:pk>/cancel/', views.AdminOrderCancelView.as_view(), name='admin-order-cancel'),
+
     # ── Historial y detalle de órdenes (Integrante 2 — Paso 2.4) ──────────
     # GET → lista SOLO las órdenes del usuario autenticado, ordenadas por -fecha.
     path('orders/', views.OrderListView.as_view(), name='order-list'),

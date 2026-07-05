@@ -1,4 +1,5 @@
 import requests
+from decimal import Decimal
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib import messages
@@ -667,6 +668,70 @@ def dashboard_variant_delete_view(request, variante_id):
             messages.error(request, 'No se pudo eliminar la variante.')
 
     return redirect('web:dashboard_variants', producto_id=producto_id)
+
+
+@staff_required
+def dashboard_orders_view(request):
+    """
+    GET /web/dashboard/orders/ → lista TODAS las órdenes de todos los usuarios.
+    Consume /api/orders/admin/, que solo responde a staff (is_staff=True).
+    """
+    headers = get_auth_headers(request)
+
+    response = requests.get(f'{API_BASE}/orders/admin/', headers=headers)
+    ordenes = response.json() if response.status_code == 200 else []
+
+    # Igual que en orders_view: 'fecha' llega como string ISO y el filtro
+    # {{ ...|date:"..." }} del template necesita un datetime real.
+    for orden in ordenes:
+        orden['fecha'] = parse_datetime(orden['fecha'])
+
+    return render(request, 'web/dashboard/orders.html', {'ordenes': ordenes})
+
+
+@staff_required
+def dashboard_order_detail_view(request, orden_id):
+    """
+    GET /web/dashboard/orders/{id}/ → detalle de cualquier orden (staff-only).
+    Consume /api/orders/admin/{id}/, que no valida dueño (a diferencia del
+    endpoint que usa el detalle de orden del comprador).
+    """
+    headers = get_auth_headers(request)
+
+    response = requests.get(f'{API_BASE}/orders/admin/{orden_id}/', headers=headers)
+    if response.status_code != 200:
+        messages.error(request, 'Orden no encontrada.')
+        return redirect('web:dashboard_orders')
+
+    orden = response.json()
+    orden['fecha'] = parse_datetime(orden['fecha'])
+    # precio_unitario llega como string (ej. "15.00"); Decimal evita errores
+    # de redondeo de punto flotante al calcular el subtotal de cada línea.
+    for item in orden.get('items', []):
+        item['subtotal'] = Decimal(item['precio_unitario']) * item['cantidad']
+    return render(request, 'web/dashboard/order_detail.html', {'orden': orden})
+
+
+@staff_required
+def dashboard_order_cancel_view(request, orden_id):
+    """
+    POST /web/dashboard/orders/{id}/cancel/ → cancela una orden pendiente.
+
+    Solo tiene efecto sobre órdenes 'pending'; la API devuelve 400 con un
+    mensaje si se intenta cancelar una orden 'paid' o ya 'cancelled'.
+    """
+    headers = get_auth_headers(request)
+
+    if request.method == 'POST':
+        response = requests.post(f'{API_BASE}/orders/admin/{orden_id}/cancel/', headers=headers)
+        if response.status_code == 200:
+            messages.success(request, 'Orden cancelada.')
+        else:
+            error = response.json().get('error', 'No se pudo cancelar la orden.')
+            messages.error(request, error)
+
+    return redirect('web:dashboard_order_detail', orden_id=orden_id)
+
 
 def create_review_view(request, producto_id):
     """
