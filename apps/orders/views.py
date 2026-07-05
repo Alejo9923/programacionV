@@ -7,12 +7,14 @@ Mantiene las vistas de carrito del Integrante 1 e incorpora:
   - OrderListView     (Paso 2.4) — historial de órdenes del usuario.
   - OrderDetailView   (Paso 2.4) — detalle de una orden con sus items.
   - OrderInvoiceView  (Opcional C) — genera y descarga la factura PDF.
+  - AdminOrderListView, AdminOrderDetailView, AdminOrderCancelView —
+    gestión de órdenes para el dashboard de staff.
 """
 
 from django.db import transaction
 from django.http import HttpResponse
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
@@ -22,6 +24,7 @@ from .serializers import (
     CartSerializer,
     CartItemSerializer,
     OrderSerializer,
+    AdminOrderSerializer,
 )
 from apps.products.models import ProductVariant
 
@@ -500,3 +503,91 @@ class OrderInvoiceView(APIView):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="factura-{order.id}.pdf"'
         return response
+
+
+# ──────────────────────────────────────────────
+#  Gestión de órdenes — Dashboard de staff
+# ──────────────────────────────────────────────
+
+class AdminOrderListView(APIView):
+    """
+    GET /api/orders/admin/ — Lista TODAS las órdenes de TODOS los usuarios.
+
+    A diferencia de OrderListView (que filtra por request.user), esta vista
+    es exclusiva para staff y no filtra por dueño: existe específicamente
+    para el dashboard de administración.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        orders = (
+            Order.objects
+            .select_related('usuario')
+            .prefetch_related('items')
+            .order_by('-fecha')
+        )
+        serializer = AdminOrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminOrderDetailView(APIView):
+    """
+    GET /api/orders/admin/{id}/ — Detalle de cualquier orden (staff-only).
+
+    A diferencia de OrderDetailView, no valida que la orden pertenezca a
+    request.user: el staff necesita poder ver el detalle de la orden de
+    cualquier usuario para poder gestionarla.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        order = get_object_or_404(
+            Order.objects
+            .select_related('usuario')
+            .prefetch_related('items__variante__producto'),
+            pk=pk,
+        )
+        serializer = AdminOrderSerializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminOrderCancelView(APIView):
+    """
+    POST /api/orders/admin/{id}/cancel/ — Cancela una orden pendiente (staff-only).
+
+    Solo se pueden cancelar órdenes en estado 'pending'. En ese estado
+    todavía NO se descontó stock ni se vació el carrito (eso ocurre recién
+    en ConfirmOrderView), así que cancelar acá es un simple cambio de
+    estado: no hay que restaurar stock ni tocar el carrito del comprador.
+
+    Una orden ya 'paid' no se puede cancelar desde este endpoint: revertir
+    una compra confirmada implicaría reponer stock y potencialmente un
+    reembolso, un proceso distinto que excede este botón del dashboard.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+
+        if order.estado != Order.Estado.PENDING:
+            return Response(
+                {
+                    'error': (
+                        f"Solo se pueden cancelar órdenes pendientes. "
+                        f"Estado actual: '{order.get_estado_display()}'."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order.estado = Order.Estado.CANCELLED
+        order.save(update_fields=['estado'])
+
+        return Response(
+            {
+                'mensaje': 'Orden cancelada.',
+                'orden_id': order.pk,
+                'estado': order.estado,
+            },
+            status=status.HTTP_200_OK,
+        )

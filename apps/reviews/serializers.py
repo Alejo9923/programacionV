@@ -27,12 +27,15 @@ class ReviewSerializer(serializers.ModelSerializer):
     lo que significa que el cliente solo necesita enviar rating y comentario.
     """
 
+    usuario_username = serializers.CharField(source='usuario.username', read_only=True)
+
     class Meta:
         model = Review
         fields = [
             'id',
-            'usuario_id',   # FK ID del autor — solo lectura
-            'producto_id',  # FK ID del producto — solo lectura
+            'usuario_id',       # FK ID del autor — solo lectura
+            'usuario_username', # Nombre del autor
+            'producto_id',      # FK ID del producto — solo lectura
             'rating',
             'comentario',
             'fecha',        # auto_now_add — solo lectura

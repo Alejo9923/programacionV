@@ -7,7 +7,7 @@
     <!-- Imagen del producto -->
     <div class="col-md-5">
         {% if producto.imagen %}
-            <img src="{{ producto.imagen.url }}" class="img-fluid rounded" alt="{{ producto.nombre }}">
+            <img src="{{ producto.imagen }}" class="img-fluid rounded" alt="{{ producto.nombre }}">
         {% else %}
             <div class="bg-secondary text-white d-flex align-items-center justify-content-center rounded" style="height: 300px;">
                 Sin imagen
@@ -69,6 +69,89 @@
         {% endif %}
     </div>
 </div>
+
+<!-- ── Reseñas ──────────────────────────────────────────────────────── -->
+<hr class="mt-5">
+<h4 class="mb-3">Reseñas del producto</h4>
+
+<!-- Resumen: promedio y cantidad total -->
+{% if reviews_data.total_resenas > 0 %}
+    <p class="text-muted">
+        <strong>{{ reviews_data.rating_promedio }} / 5</strong>
+        &mdash; {{ reviews_data.total_resenas }} reseña{{ reviews_data.total_resenas|pluralize }}
+    </p>
+{% else %}
+    <p class="text-muted">Este producto aún no tiene reseñas.</p>
+{% endif %}
+
+<!-- Lista de reseñas existentes -->
+{% for resena in reviews_data.resenas %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <strong>{{ resena.usuario_username }}</strong>
+                    <!-- Estrellas: forloop.counter va de 1 a 5, mostramos ★ si es <= al rating -->
+                    <span class="text-warning ms-2">
+                        {% for i in "12345" %}
+                            {% if forloop.counter <= resena.rating %}★{% else %}☆{% endif %}
+                        {% endfor %}
+                    </span>
+                    <small class="text-muted ms-2">{{ resena.fecha|slice:":10" }}</small>
+                </div>
+
+                <!-- Botón eliminar: solo visible para el autor de la reseña -->
+                {% if request.session.user_id == resena.usuario_id %}
+                    <form method="POST" action="{% url 'web:delete_review' resena.id %}">
+                        {% csrf_token %}
+                        <!-- producto_id se manda en el body para poder redirigir de vuelta -->
+                        <input type="hidden" name="producto_id" value="{{ producto.id }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('¿Eliminar esta reseña?')">
+                            Eliminar
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            <p class="mt-2 mb-0">{{ resena.comentario }}</p>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Formulario para dejar una reseña (solo usuarios autenticados) -->
+{% if request.session.access_token %}
+    <div class="card mt-4">
+        <div class="card-header"><strong>Dejá tu reseña</strong></div>
+        <div class="card-body">
+            <form method="POST" action="{% url 'web:create_review' producto.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Puntaje</label>
+                    <select name="rating" class="form-select" required>
+                        <option value="">-- Elegí un puntaje --</option>
+                        <option value="5">★★★★★ — Excelente</option>
+                        <option value="4">★★★★☆ — Muy bueno</option>
+                        <option value="3">★★★☆☆ — Regular</option>
+                        <option value="2">★★☆☆☆ — Malo</option>
+                        <option value="1">★☆☆☆☆ — Muy malo</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Comentario</label>
+                    <textarea name="comentario" class="form-control" rows="3"
+                              placeholder="Contá tu experiencia con el producto..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Publicar reseña</button>
+            </form>
+        </div>
+    </div>
+{% else %}
+    <p class="mt-3 text-muted">
+        <a href="{% url 'web:login' %}">Iniciá sesión</a> para dejar una reseña.
+    </p>
+{% endif %}
+
+
 
 <script>
     document.getElementById('cantidad').addEventListener('keypress', function(e) {

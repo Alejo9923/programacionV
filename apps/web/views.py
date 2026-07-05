@@ -1,7 +1,10 @@
 import requests
+from decimal import Decimal
 from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from django.contrib import messages
 from functools import wraps
+from django.utils.dateparse import parse_datetime
 
 def staff_required(view_func):
     """
@@ -68,7 +71,10 @@ def login_view(request):
                 headers={'Authorization': f'Bearer {data["access"]}'}
             )
             if profile_resp.status_code == 200:
-                request.session['is_staff'] = profile_resp.json().get('is_staff', False)
+                profile_data = profile_resp.json()
+                request.session['is_staff'] = profile_data.get('is_staff', False)
+                request.session['user_id'] = profile_data.get('id')
+
 
 
             return redirect('web:catalog')
@@ -198,7 +204,20 @@ def product_detail_view(request, producto_id):
                 'error': error
             })
 
-    return render(request, 'web/product_detail.html', {'producto': producto})
+    # Traemos las reseñas del producto desde la API.
+    # Si falla (producto inexistente, error de red), usamos un dict vacío seguro.
+    reviews_resp = requests.get(f'{API_BASE}/products/{producto_id}/reviews/')
+    reviews_data = reviews_resp.json() if reviews_resp.status_code == 200 else {
+        'rating_promedio': None,
+        'total_resenas': 0,
+        'resenas': [],
+    }
+
+    return render(request, 'web/product_detail.html', {
+        'producto': producto,
+        'reviews_data': reviews_data,
+    })
+
 
 
 def cart_view(request):
@@ -311,6 +330,12 @@ def orders_view(request):
     response = requests.get(f'{API_BASE}/orders/', headers=headers)
     ordenes = response.json() if response.status_code == 200 else []
 
+    # La API devuelve 'fecha' como string ISO 8601 (ej. "2026-07-04T22:38:44...").
+    # El filtro {{ ...|date:"d/m/Y H:i" }} del template necesita un datetime real,
+    # no un string, así que lo parseamos acá antes de renderizar.
+    for orden in ordenes:
+        orden['fecha'] = parse_datetime(orden['fecha'])
+
     return render(request, 'web/orders.html', {'ordenes': ordenes})
 
 
@@ -328,7 +353,38 @@ def order_detail_view(request, orden_id):
         return redirect('web:orders')
 
     orden = response.json()
+    orden['fecha'] = parse_datetime(orden['fecha'])  # string ISO → datetime real
     return render(request, 'web/order_detail.html', {'orden': orden})
+
+
+def order_invoice_view(request, orden_id):
+    """
+    GET /web/orders/{id}/invoice/ → descarga la factura PDF de una orden pagada.
+
+    Actúa como proxy: el navegador no tiene el JWT (vive en la sesión de
+    Django, no en una cookie), así que esta vista lo agrega en el header
+    Authorization y reenvía el PDF recibido de la API tal cual, con el
+    mismo Content-Type. Si la orden no está 'paid' o no es del usuario,
+    la API devuelve un error (400/403) que mostramos como mensaje.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('web:login')
+
+    response = requests.get(f'{API_BASE}/orders/{orden_id}/invoice/', headers=headers)
+
+    if response.status_code == 200:
+        # response.content son los bytes crudos del PDF generado por ReportLab.
+        # No usamos response.json() porque el body no es JSON, es binario.
+        pdf_response = HttpResponse(response.content, content_type='application/pdf')
+        pdf_response['Content-Disposition'] = f'attachment; filename="factura-{orden_id}.pdf"'
+        return pdf_response
+
+    # La API devuelve {'error': '...'} en 400 (no pagada) y 403 (no es dueño).
+    error = response.json().get('error', 'No se pudo generar la factura.')
+    messages.error(request, error)
+    return redirect('web:order_detail', orden_id=orden_id)
+
 
 
 def confirm_order_view(request, orden_id):
@@ -612,3 +668,129 @@ def dashboard_variant_delete_view(request, variante_id):
             messages.error(request, 'No se pudo eliminar la variante.')
 
     return redirect('web:dashboard_variants', producto_id=producto_id)
+
+
+@staff_required
+def dashboard_orders_view(request):
+    """
+    GET /web/dashboard/orders/ → lista TODAS las órdenes de todos los usuarios.
+    Consume /api/orders/admin/, que solo responde a staff (is_staff=True).
+    """
+    headers = get_auth_headers(request)
+
+    response = requests.get(f'{API_BASE}/orders/admin/', headers=headers)
+    ordenes = response.json() if response.status_code == 200 else []
+
+    # Igual que en orders_view: 'fecha' llega como string ISO y el filtro
+    # {{ ...|date:"..." }} del template necesita un datetime real.
+    for orden in ordenes:
+        orden['fecha'] = parse_datetime(orden['fecha'])
+
+    return render(request, 'web/dashboard/orders.html', {'ordenes': ordenes})
+
+
+@staff_required
+def dashboard_order_detail_view(request, orden_id):
+    """
+    GET /web/dashboard/orders/{id}/ → detalle de cualquier orden (staff-only).
+    Consume /api/orders/admin/{id}/, que no valida dueño (a diferencia del
+    endpoint que usa el detalle de orden del comprador).
+    """
+    headers = get_auth_headers(request)
+
+    response = requests.get(f'{API_BASE}/orders/admin/{orden_id}/', headers=headers)
+    if response.status_code != 200:
+        messages.error(request, 'Orden no encontrada.')
+        return redirect('web:dashboard_orders')
+
+    orden = response.json()
+    orden['fecha'] = parse_datetime(orden['fecha'])
+    # precio_unitario llega como string (ej. "15.00"); Decimal evita errores
+    # de redondeo de punto flotante al calcular el subtotal de cada línea.
+    for item in orden.get('items', []):
+        item['subtotal'] = Decimal(item['precio_unitario']) * item['cantidad']
+    return render(request, 'web/dashboard/order_detail.html', {'orden': orden})
+
+
+@staff_required
+def dashboard_order_cancel_view(request, orden_id):
+    """
+    POST /web/dashboard/orders/{id}/cancel/ → cancela una orden pendiente.
+
+    Solo tiene efecto sobre órdenes 'pending'; la API devuelve 400 con un
+    mensaje si se intenta cancelar una orden 'paid' o ya 'cancelled'.
+    """
+    headers = get_auth_headers(request)
+
+    if request.method == 'POST':
+        response = requests.post(f'{API_BASE}/orders/admin/{orden_id}/cancel/', headers=headers)
+        if response.status_code == 200:
+            messages.success(request, 'Orden cancelada.')
+        else:
+            error = response.json().get('error', 'No se pudo cancelar la orden.')
+            messages.error(request, error)
+
+    return redirect('web:dashboard_order_detail', orden_id=orden_id)
+
+
+def create_review_view(request, producto_id):
+    """
+    POST /web/products/{id}/reviews/ → envía una reseña a la API.
+
+    La API verifica que el usuario haya comprado el producto (orden 'paid').
+    Si no compró, devuelve 403; si ya dejó una reseña, devuelve 400.
+    En ambos casos mostramos el mensaje de error en el detalle del producto.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('web:login')
+
+    if request.method == 'POST':
+        rating = request.POST.get('rating')
+        comentario = request.POST.get('comentario')
+
+        response = requests.post(
+            f'{API_BASE}/products/{producto_id}/reviews/',
+            json={'rating': int(rating), 'comentario': comentario},
+            headers=headers,
+        )
+
+        if response.status_code == 201:
+            messages.success(request, 'Reseña publicada.')
+        else:
+            # La API devuelve {'error': '...'} en 403 (no compró) y 400 (ya reseñó)
+            error_msg = response.json().get('error', 'No se pudo publicar la reseña.')
+            messages.error(request, error_msg)
+
+    return redirect('web:product_detail', producto_id=producto_id)
+
+
+def delete_review_view(request, review_id):
+    """
+    POST /web/reviews/{id}/delete/ → elimina una reseña propia.
+
+    Usamos POST en lugar de DELETE porque los formularios HTML solo soportan
+    GET y POST. El producto_id viene en el body para poder redirigir de vuelta
+    al detalle del producto después de borrar.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('web:login')
+
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+
+        # Llamamos al endpoint DELETE de la API con el token del usuario.
+        # La API verifica que el usuario sea el autor (403 si no lo es).
+        response = requests.delete(f'{API_BASE}/reviews/{review_id}/', headers=headers)
+
+        if response.status_code == 204:
+            messages.success(request, 'Reseña eliminada.')
+        else:
+            messages.error(request, 'No se pudo eliminar la reseña.')
+
+        if producto_id:
+            return redirect('web:product_detail', producto_id=int(producto_id))
+
+    return redirect('web:catalog')
+

@@ -1,14 +1,19 @@
 from datetime import timedelta  # agregar al inicio del archivo
 from pathlib import Path
-from decouple import config
+from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 
-DEBUG = config('DEBUG', default=True, cast=bool)
+# En producción DEBUG debe ser False: con True, Django expone tracebacks
+# completos (código fuente, variables, configuración) ante cualquier error.
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+# Hosts/dominios permitidos, separados por coma en la variable de entorno
+# (ej. "midominio.com,www.midominio.com"). Si DEBUG=True y no se define
+# nada, Django igual permite localhost/127.0.0.1 automáticamente.
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -86,6 +91,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+# Carpeta donde `collectstatic` junta los estáticos (admin, DRF browsable API,
+# etc.) para servirlos en producción, donde DEBUG=False y Django ya no los
+# sirve automáticamente. Ver config/urls.py para cómo se sirven sin DEBUG.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -138,12 +147,6 @@ SIMPLE_JWT = {
     # Formato del header de autenticación: Authorization: Bearer 
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-
-# Configuración de archivos subidos por usuarios (imágenes de productos).
-# MEDIA_URL  → prefijo en la URL para acceder a los archivos
-# MEDIA_ROOT → carpeta física donde se guardan en el servidor
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 # Protección contra Clickjacking — impide que la página sea incrustada en un iframe
 # de otro sitio. XFrameOptionsMiddleware (ya activo en MIDDLEWARE) lee esta variable.

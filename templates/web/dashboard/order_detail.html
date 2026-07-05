@@ -1,12 +1,13 @@
 {% extends 'web/base.html' %}
 
-{% block title %}Orden #{{ orden.id }}{% endblock %}
+{% block title %}Orden #{{ orden.id }} — Dashboard{% endblock %}
 
 {% block content %}
 <h2 class="mb-4">Orden #{{ orden.id }}</h2>
 
 <div class="row mb-4">
     <div class="col-md-6">
+        <p><strong>Usuario:</strong> {{ orden.usuario_email }}</p>
         <p><strong>Fecha:</strong> {{ orden.fecha|date:"d/m/Y H:i" }}</p>
         <p><strong>Estado:</strong>
             {% if orden.estado == 'pending' %}
@@ -41,7 +42,7 @@
                 <td>{{ item.variante.color }}</td>
                 <td>{{ item.cantidad }}</td>
                 <td>${{ item.precio_unitario }}</td>
-                <td>${{ item.precio_unitario|floatformat:2 }}</td>
+                <td>${{ item.subtotal|floatformat:2 }}</td>
             </tr>
         {% endfor %}
     </tbody>
@@ -54,15 +55,12 @@
 </table>
 
 <div class="mt-3">
-    <a href="{% url 'web:orders' %}" class="btn btn-outline-secondary">← Volver a mis órdenes</a>
+    <a href="{% url 'web:dashboard_orders' %}" class="btn btn-outline-secondary">← Volver a órdenes</a>
     {% if orden.estado == 'pending' %}
-        <form method="POST" action="{% url 'web:confirm_order' orden.id %}" class="d-inline">
+        <form method="POST" action="{% url 'web:dashboard_order_cancel' orden.id %}" class="d-inline">
             {% csrf_token %}
-            <button type="submit" class="btn btn-success">Confirmar pago</button>
+            <button type="submit" class="btn btn-danger" onclick="return confirm('¿Cancelar esta orden?');">Cancelar orden</button>
         </form>
-    {% elif orden.estado == 'paid' %}
-        <!-- GET simple: no modifica estado en el servidor, solo descarga el PDF -->
-        <a href="{% url 'web:order_invoice' orden.id %}" class="btn btn-primary">Descargar factura</a>
     {% endif %}
 </div>
 {% endblock %}

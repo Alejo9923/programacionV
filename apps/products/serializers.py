@@ -27,12 +27,14 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     # (precio_base del producto + precio_extra de la variante).
     # Se calcula con SerializerMethodField porque requiere acceder a dos modelos.
     precio_total = serializers.SerializerMethodField()
+    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
 
     class Meta:
         model = ProductVariant
         fields = [
             'id',
             'producto',     # ID del producto (requerido al crear)
+            'producto_nombre',
             'talla',        # S / M / L / XL
             'color',
             'stock',

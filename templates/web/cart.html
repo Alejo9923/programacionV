@@ -21,7 +21,7 @@
         <tbody>
             {% for item in cart.items %}
                 <tr>
-                    <td>{{ item.variante.producto.nombre }}</td>
+                    <td>{{ item.variante.producto_nombre }}</td>
                     <td>{{ item.variante.talla }}</td>
                     <td>{{ item.variante.color }}</td>
                     <td>${{ item.variante.precio_total }}</td>
