@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib import messages
 from functools import wraps
+from django.utils.dateparse import parse_datetime
 
 def staff_required(view_func):
     """
@@ -328,6 +329,12 @@ def orders_view(request):
     response = requests.get(f'{API_BASE}/orders/', headers=headers)
     ordenes = response.json() if response.status_code == 200 else []
 
+    # La API devuelve 'fecha' como string ISO 8601 (ej. "2026-07-04T22:38:44...").
+    # El filtro {{ ...|date:"d/m/Y H:i" }} del template necesita un datetime real,
+    # no un string, así que lo parseamos acá antes de renderizar.
+    for orden in ordenes:
+        orden['fecha'] = parse_datetime(orden['fecha'])
+
     return render(request, 'web/orders.html', {'ordenes': ordenes})
 
 
@@ -345,7 +352,9 @@ def order_detail_view(request, orden_id):
         return redirect('web:orders')
 
     orden = response.json()
+    orden['fecha'] = parse_datetime(orden['fecha'])  # string ISO → datetime real
     return render(request, 'web/order_detail.html', {'orden': orden})
+
 
 def order_invoice_view(request, orden_id):
     """

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -7,6 +8,9 @@ urlpatterns = [
     # Panel de administración que viene incluido en Django.
     # Permite gestionar toda la base de datos desde el navegador.
     path('admin/', admin.site.urls),
+    # Redirige la raíz del sitio al login web, ya que no hay una home propia del proyecto.
+    path('', RedirectView.as_view(url='/web/login/', permanent=False), name='home'),
+
 
     # include() le dice a Django: "todo lo que empiece con api/auth/
     # derivalo al archivo apps/users/urls.py para que lo resuelva".

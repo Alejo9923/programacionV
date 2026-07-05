@@ -102,11 +102,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
     Es read_only en su totalidad porque los OrderItems se crean
     internamente en CheckoutView, nunca desde el body de la request.
     """
+    variante = ProductVariantSerializer(read_only=True)
 
     class Meta:
         model = OrderItem
         fields = [
             'id',
+            'variante',
             'variante_id',      # FK ID — suficiente para identificar la variante
             'cantidad',
             'precio_unitario',  # Snapshot: precio fijo en el momento de la compra

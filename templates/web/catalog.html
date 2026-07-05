@@ -39,7 +39,7 @@
                 <div class="card h-100">
                     {% if producto.imagen %}
                         <!-- XSS: Django escapa automáticamente las variables en templates -->
-                        <img src="{{ producto.imagen.url }}" class="card-img-top" alt="{{ producto.nombre }}" style="height: 200px; object-fit: cover;">
+                        <img src="{{ producto.imagen }}" class="card-img-top" alt="{{ producto.nombre }}" style="height: 200px; object-fit: cover;">
                     {% else %}
                         <div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">
                             Sin imagen

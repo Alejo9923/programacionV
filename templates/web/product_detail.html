@@ -7,7 +7,7 @@
     <!-- Imagen del producto -->
     <div class="col-md-5">
         {% if producto.imagen %}
-            <img src="{{ producto.imagen.url }}" class="img-fluid rounded" alt="{{ producto.nombre }}">
+            <img src="{{ producto.imagen }}" class="img-fluid rounded" alt="{{ producto.nombre }}">
         {% else %}
             <div class="bg-secondary text-white d-flex align-items-center justify-content-center rounded" style="height: 300px;">
                 Sin imagen
